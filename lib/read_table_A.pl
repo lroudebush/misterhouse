@@ -980,6 +980,18 @@ sub read_table_A {
             $code .= "use Philips_Hue;\n";
         }
     }
+	elsif ($type eq "TCPI"){
+    	#require 'TCPi.pm';
+        ($address, $name, $grouplist, @other) = @item_info;
+        $other = join ', ', (map {"'$_'"} @other); # Quote data
+		&::print_log("$address, $name, $grouplist, $other");
+		$object = "TCPi('$address',$other)";
+		if( ! $packages{TCPi}++ ) {   # first time for this object type?
+			&::print_log("First Time TCPi Usage");
+            $code .= "use TCPi;\n";
+			&::MainLoop_pre_add_hook( \&TCPi::GetDevicesAndStatus, 1 );
+        }
+    }
     else {
         print "\nUnrecognized .mht entry: $record\n";
         return;
