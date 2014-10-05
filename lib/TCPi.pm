@@ -48,7 +48,18 @@ sub new {
 	$$self{name}='';
     
     $self->addStates ('on', 'off', '5%', '10%', '15%', '20%', '25%', '30%', '35%', '40%', '45%', '50%', '55%', '60%', '65%', '70%', '75%', '80%', '85%', '90%', '95%', '100%');
-    return $self;
+    &startup;
+	return $self;
+}
+
+sub startup {
+	&::print_log("Initializing TCPi") if $debug;
+	if ($main::config_parms{TCPiHost} != ""){
+		$TCPiHost = $main::config_parms{TCPiHost};
+	}
+	#&::MainLoop_pre_add_hook( \&TCPi::GetDevicesAndStatus, 1 );
+	#&PollDevice;
+	if (exists $main::Debug{tcpi}) {$debug = ($main::Debug{tcpi} >= 1) ? 1 : $debug;}
 }
 
 sub addStates {
@@ -63,7 +74,9 @@ sub default_setstate
 	
 	my %replacements = ("off" => "0", "on" => "1", "%" => "");
 	($cmnd = $state) =~ s/(@{[join "|", keys %replacements]})/$replacements{$1}/g;
-    	
+    my $curr = $self->state;
+	&::print_log("Current: $curr, New $state") if $debug;
+	
     return -1 if ($self->state eq $state); # Don't propagate state unless it has changed.
 	
 	#call the function to turn on/off light
@@ -95,18 +108,10 @@ sub SetTCPi {
 	}
 }
 
-sub startup {
-	if ($main::config_parms{TCPiHost} != ""){
-		$TCPiHost = $main::config_parms{TCPiHost};
-	}
-	&::MainLoop_pre_add_hook( \&TCPi::GetDevicesAndStatus, 1 );
-	&PollDevice;
-	if (exists $main::Debug{tcpi}) {$debug = ($main::Debug{tcpi} >= 1) ? 1 : $debug;}
-}
-
 sub GetDevicesAndStatus {
 	my $now_time = Time::HiRes::time;
 	if (($now_time - $last_time) > (60 * $rate)){
+		&::print_log("Polling Device") if $debug;
 		&PollDevice;
 	}
 	
@@ -125,14 +130,16 @@ sub PollDevice {
 		($lvl) = $content =~ /<device><did>$did<\/did><known>\d<\/known><lock>\d<\/lock><state>$st<\/state><level>(.*?)<\/level>/;
 		($offline) = $content =~ /<device><did>$did<\/did><known>\d<\/known><lock>\d<\/lock><state>$st<\/state><offline>(.*?)<\/offline>/;
 		($name) = $content =~ /<device><did>$did<\/did><known>\d<\/known><lock>\d<\/lock><state>$st<\/state>.*?<name>(.*?)<\/name>/;
+		&::print_log("State:$st Level:$lvl Offline:$offline Name:$name") if $debug;
 		if ($st == 0){
+			&::print_log("Forcing $st eq $lvl") if $debug;
 			$lvl = 0;
 		}elsif (($st == 1)&&($lvl == 100)){
 			$lvl = 1;
 		}
 		if ($offline == 1){&::print_log("Warning DID: $did Name: $name is offline.");}
 		&SetDeviceInfo($did, $lvl, $name);
-		&::print_log("Level: $lvl DID: $did Name: $name") if $debug;
+		&::print_log("Level:$lvl DID:$did Name:$name") if $debug;
 	}
 	$last_time = Time::HiRes::time;
 }
@@ -144,16 +151,18 @@ sub SetDeviceInfo {
 		my $object = &main::get_object_by_name($name);
 		if ($object->{address} == $devid){
 			if ($cmd == 0){
-				$cmd = 'Off';
+				$cmd = 'OFF';
 			}elsif ($cmd == 1){
-				$cmd = 'On';
+				$cmd = 'ON';
 			}else {
 				$cmd = $cmd."%";
 			}
-			if ($object->{state}!=$cmd){
+			&::print_log("Setting State:$object->{state} Device:$devid Command:$cmd") if $debug;
+			if ($object->{state} ne $cmd){
+				&::print_log("State is no match, updating...") if $debug;
 				$object->{state}=$cmd;
 			}
-			if ($object->{name}!=$name){
+			if ($object->{name} ne $name){
 				$object->{name}=$name;
 			}
 			$objfound = 1;
