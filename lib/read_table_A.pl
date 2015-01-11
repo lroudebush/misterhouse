@@ -138,6 +138,18 @@ sub read_table_A {
         $other = join ', ', (map {"'$_'"} @other); # Quote data
         $object = "Insteon::MotionSensor(\'$address\', $other)";
     }
+    elsif($type eq "INSTEON_IOLINC") {
+        require Insteon::IOLinc;
+        ($address, $name, $grouplist, @other) = @item_info;
+        $other = join ', ', (map {"'$_'"} @other); # Quote data
+        $object = "Insteon::IOLinc(\'$address\', $other)";
+    }
+    elsif($type eq "INSTEON_FANLINC") {
+        require Insteon::Lighting;
+        ($address, $name, $grouplist, @other) = @item_info;
+        $other = join ', ', (map {"'$_'"} @other); # Quote data
+        $object = "Insteon::FanLinc(\'$address\', $other)";
+    }
     elsif($type eq "INSTEON_ICONTROLLER") {
         require Insteon::BaseInsteon;
         ($address, $name, $grouplist, @other) = @item_info;
@@ -156,10 +168,10 @@ sub read_table_A {
         $object = "Insteon_Thermostat(\$$object, \'$address\', $other)";
     }
     elsif($type eq "INSTEON_IRRIGATION") {
-        require 'Insteon_Irrigation.pm';
-        ($address, $name, $grouplist, $object, @other) = @item_info;
+        require Insteon::Irrigation;
+        ($address, $name, $grouplist, @other) = @item_info;
         $other = join ', ', (map {"'$_'"} @other); # Quote data
-        $object = "Insteon_Irrigation(\$$object, \'$address\', $other)";
+        $object = "Insteon::Irrigation(\'$address\', $other)";
     }
     # ----------------------------------------------------------------------
     elsif($type eq 'FROG') {
@@ -753,6 +765,19 @@ sub read_table_A {
             $code .= "use xPL_Items;\n";
         }
     }
+     elsif($type eq "XPL_X10BASIC") {
+       ($address, $name, $grouplist, @other) = @item_info;
+       $other = join ', ', (map {"'$_'"} @other); # Quote data
+       if($other){
+           $object = "xPL_X10Basic('$address',$other)";
+       }
+       else{
+           $object = "xPL_X10Basic('$address')";
+       }
+       if( ! $packages{xPL_X10Basic}++ ) {   # first time for this objecttype?
+           $code .= "use xPL_X10Basic;\n";
+       }
+   }
     elsif($type eq "XPL_IRRIGATEWAY") {
         ($address, $name, $grouplist, @other) = @item_info;
         $other = join ', ', (map {"'$_'"} @other); # Quote data
@@ -980,6 +1005,25 @@ sub read_table_A {
             $code .= "use Philips_Hue;\n";
         }
     }
+	elsif ($type eq "TCPI"){
+    	#require 'TCPi.pm';
+        ($address, $name, $grouplist, @other) = @item_info;
+        $other = join ', ', (map {"'$_'"} @other); # Quote data
+		$object = "TCPi('$address',$other)";
+		if( ! $packages{TCPi}++ ) {   # first time for this object type?
+            $code .= "use TCPi;\n";
+			&::MainLoop_pre_add_hook( \&TCPi::GetDevicesAndStatus, 1 );
+        }
+    }
+	elsif ($type eq "WINK"){
+		($address, $name, $grouplist, @other) = @item_info;
+		$other = join ', ', (map {"'$_'"} @other); # Quote data
+		$object = "Wink('$address',$other)";
+		if( ! $packages{Wink}++ ) {   # first time for this object type?
+			$code .= "use Wink;\n";
+			&::MainLoop_pre_add_hook( \&Wink::GetDevicesAndStatus, 1 );
+		}
+	}
     else {
         print "\nUnrecognized .mht entry: $record\n";
         return;
